@@ -1,5 +1,7 @@
+__precompile__()
+
 module DIDSON
 
-# package code goes here
-
+export sample_data, view
+include("Viewer.jl")
 end # module
