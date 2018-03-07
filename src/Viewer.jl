@@ -8,10 +8,10 @@ using ObjectTracker
 @pyimport skvideo.io as skvio
 
 # minimum area (number of pixels in a time slice) for foreground connected components
-const AREA_THRESHOLD = 8
+const AREA_THRESHOLD = 9
 # minimum volume (number of pixels contiguous across time slices)
 # for foreground components
-const VOLUME_THRESHOLD = 20
+const VOLUME_THRESHOLD = 40
 
 samples = [Pkg.dir("DIDSON") * "/data/lamprey$n.npy" for n in 1:7]
 
