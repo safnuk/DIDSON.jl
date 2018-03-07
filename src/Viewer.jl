@@ -13,21 +13,26 @@ const AREA_THRESHOLD = 8
 # for foreground components
 const VOLUME_THRESHOLD = 20
 
-sample_data = ["data/lamrey$n.npy" for n in 1:7]
+samples = [Pkg.dir("DIDSON") * "/data/lamprey$n.npy" for n in 1:7]
 
-function view(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
-    V = load(infile)
+function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
+    println("Loading...")
+    V = load_video(infile)
+    println("Segmenting foreground...")
     fgbg = filter(V, area, volume);
     for n in 1:length(V)
         if fgbg[n] == 0
             V[n] = 0
         end
     end
+    println("Collecting blobs...")
     objects = Vector{Object}()
     num_objects = 0
     blob_series = form_blobs(fgbg[2:end, :, :])
 
+    println("Loading video player...")
     gui = imshow(permutedims(V, [2, 3, 1]))
+    println("Tracking objects...")
     for (n, blobs) in enumerate(blob_series)
         num_objects = match!(objects, blobs, num_objects; radius=20)
         for obj in objects
@@ -44,6 +49,7 @@ function view(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
             end
         end
     end
+    println("Done")
     return
 end
 

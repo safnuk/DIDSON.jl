@@ -1,7 +1,5 @@
-__precompile__()
-
 module DIDSON
 
-export sample_data, view
+export samples, view_clip
 include("Viewer.jl")
 end # module
