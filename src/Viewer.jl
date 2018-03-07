@@ -4,16 +4,12 @@ using PyCall
 using BackgroundSegmenter
 using ObjectTracker
 
-@pyimport numpy as np
-@pyimport skvideo.io as skvio
-
 # minimum area (number of pixels in a time slice) for foreground connected components
 const AREA_THRESHOLD = 9
 # minimum volume (number of pixels contiguous across time slices)
 # for foreground components
 const VOLUME_THRESHOLD = 40
-
-samples = [Pkg.dir("DIDSON") * "/data/lamprey$n.npy" for n in 1:7]
+const samples = [Pkg.dir("DIDSON") * "/data/lamprey$n.npy" for n in 1:7]
 
 function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
     println("Loading...")
@@ -54,6 +50,8 @@ function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
 end
 
 function load_video(infile)
+    @pyimport numpy as np
+    @pyimport skvideo.io as skvio
     ext = infile[end-3:end]
     if ext == ".npy"
         return np.load(infile)
