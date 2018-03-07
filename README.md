@@ -23,3 +23,11 @@ julia> using DIDSON
 julia> view_clip(samples[1])
 ```
 There are 7 different sample clips in the repo (i.e. use `samples[n]` for `1 <= n <= 7`), or you can use your own avi file or numpy array file directly.
+
+# Upgrading
+
+To pull the latest changes from the repository, use
+```
+julia> Pkg.checkout("DIDSON")
+```
+This can also be done on the the other unregistered packages.
