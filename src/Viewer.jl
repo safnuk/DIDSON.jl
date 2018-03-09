@@ -37,9 +37,9 @@ function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
             # else
             if !is_transient(obj)
                 color = RGB(0, 0, 1)
-                annotate!(gui, AnnotationPoint(obj.centroid[2], obj.centroid[1], z=n+1, shape='.', size=2, color=color))
-                annotate!(gui, AnnotationText(obj.centroid[2],
-                                            obj.centroid[1]+4,
+                annotate!(gui, AnnotationPoint(obj.y.p, obj.x.p, z=n+1, shape='.', size=2, color=color))
+                annotate!(gui, AnnotationText(obj.y.p,
+                                            obj.x.p+4,
                                             z=n+1, string(obj.label),
                                             color=color, fontsize=4))
             end
