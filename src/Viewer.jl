@@ -1,5 +1,4 @@
 using ImageView, GtkReactive, Colors, Images
-using PyCall
 
 using BackgroundSegmenter
 using ObjectTracker
@@ -9,13 +8,13 @@ const AREA_THRESHOLD = 9
 # minimum volume (number of pixels contiguous across time slices)
 # for foreground components
 const VOLUME_THRESHOLD = 40
-const samples = [Pkg.dir("DIDSON") * "/data/lamprey$n.npy" for n in 1:7]
+const samples = [Pkg.dir("DIDSON") * "/data/lamprey$n.avi" for n in 1:5]
 
 function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
     println("Loading...")
     V = load_video(infile)
     println("Segmenting foreground...")
-    fgbg = filter(V, area, volume);
+    @time fgbg = filter(V, area, volume);
     for n in 1:length(V)
         if fgbg[n] == 0
             V[n] = 0
@@ -24,10 +23,10 @@ function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
     println("Collecting blobs...")
     objects = Vector{Object}()
     num_objects = 0
-    blob_series = form_blobs(fgbg[2:end, :, :])
+    @time blob_series = form_blobs(fgbg[:, :, 2:end])
 
     println("Loading video player...")
-    gui = imshow(permutedims(V, [2, 3, 1]))
+    gui = imshow(V)
     println("Tracking objects...")
     for (n, blobs) in enumerate(blob_series)
         num_objects = match!(objects, blobs, num_objects; radius=20)
@@ -50,30 +49,27 @@ function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
 end
 
 function load_video(infile)
-    @pyimport numpy as np
-    @pyimport skvideo.io as skvio
     ext = infile[end-3:end]
-    if ext == ".npy"
-        return np.load(infile)
-    elseif ext == ".avi"
-        return skvio.vread(infile)[:, :, :, 3] 
+    if ext == ".avi"
+        return reinterpret(UInt8, load(infile))[1, :, :, :] 
     else
-        throw(ArgumentError("invalid file type - must be npy or avi"))
+        throw(ArgumentError("invalid file type - must be avi"))
     end
 end
 
 function filter(V, min_area, min_volume)
     fgbg = zeros(V);
-    (t, n, m) = size(V)
+    (n, m, t) = size(V)
     M = MixtureModel(n, m);
     for i in 1:t
-        apply!(M, (view(V, i, :, :)), (view(fgbg, i, :, :)));
+        apply!(M, (view(V, :, :, i)), (view(fgbg, :, :, i)));
     end
     if min_area > 0
         for i in 1:t
-            c = view(fgbg, i, :, :);
-            fgbg[i, :, :] = filter_components(c, min_area);
-            fgbg[i, :, :] = morphological_close(c)
+            c = view(fgbg, :, :, i);
+            # filter_components!(temp1, c, min_area);
+            fgbg[:, :, i] = filter_components(c, min_area);
+            fgbg[:, :, i] = morphological_close(c)
         end
     end
     fgbg = filter_components(fgbg, min_volume);
