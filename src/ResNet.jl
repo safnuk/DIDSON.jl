@@ -20,20 +20,46 @@ train = gpu.(train)
 tX = cat(4, float.(MNIST.images(:test)[1:1000])...) |> gpu
 tY = onehotbatch(MNIST.labels(:test)[1:1000], 0:9) |> gpu
 
+struct BasicBlock{B, C}
+    m::B
+    res::C
+end
+
+function BasicBlock(channels::Pair{<:Integer,<:Integer}; stride=1, dropout=0.7, σ=relu)
+    in, out = channels
+    if in == out
+        res = identity
+    else
+        res = Conv((1, 1), in=>out; stride=(stride, stride))
+    end
+    m = Chain(
+        BatchNorm(in; λ=σ),
+        Conv((3, 3), in=>out; stride=(stride, stride), pad=(1, 1)),
+        BatchNorm(out; λ=σ),
+        Dropout(dropout),
+        Conv((3, 3), out=>out; pad=(1, 1))
+       )
+    BasicBlock(m, res)
+end
+
+Flux.treelike(BasicBlock)
+
+function (b::BasicBlock)(x)
+    b.res(x) + b.m(x)
+end
+
+p = 1.0
 m = Chain(
-    BatchNorm(1; λ=relu),
-    Conv((3, 3), 1=>16; pad=(1, 1)),
+    BasicBlock(1=>8; stride=2, dropout=p),
+    BasicBlock(8=>8, dropout=p),
+    BasicBlock(8=>16; stride=2, dropout=p),
+    BasicBlock(16=>16; dropout=p),
     BatchNorm(16; λ=relu),
-    Conv((3, 3), 16=>16; stride=(2, 2), pad=(1, 1)),
-    BatchNorm(16; λ=relu),
-    Conv((1, 1), 16=>8),
-    x -> maxpool(x, (2,2)),
-    # x -> meanpool(x, (28, 28)),
-    # x -> mean(x, 1, 2)
-    x -> reshape(x, :, size(x, 4)),
-    BatchNorm(392; λ=relu),
-    Dense(392, 10),
-    softmax) |> gpu
+    x -> mean(x, [1, 2]),
+    x -> reshape(x, 16, :),
+    Dense(16, 10),
+    softmax
+   ) |> gpu
 
 testmode!(m)
 m(train[1][1])
