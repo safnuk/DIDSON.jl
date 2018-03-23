@@ -1,24 +1,27 @@
 using BSON: @save, @load
 using Flux, Flux.Data.MNIST
-using Flux: @epochs, onehotbatch, argmax, crossentropy, testmode!, throttle
+using Flux: @epochs, onehotbatch, argmax, logitcrossentropy, testmode!, throttle
 using Base.Iterators: repeated, partition
-# using CuArrays
+using CuArrays
 
 # Classify MNIST digits with a convolutional network
 
-imgs = MNIST.images()
+imgs = MNIST.images();
+test_imgs = MNIST.images(:test);
 
-labels = onehotbatch(MNIST.labels(), 0:9)
+labels = onehotbatch(MNIST.labels(), 0:9);
+test_labels = onehotbatch(MNIST.labels(:test), 0:9);
 
-# Partition into batches of size 1,000
+# Partition into batches of size 100
 train = [(cat(4, float.(imgs[i])...), labels[:,i])
-         for i in partition(1:60_000, 1000)]
+         for i in partition(1:60_000, 50)];
 
-train = gpu.(train)
+train = gpu.(train);
 
 # Prepare test set (first 1,000 images)
-tX = cat(4, float.(MNIST.images(:test)[1:1000])...) |> gpu
-tY = onehotbatch(MNIST.labels(:test)[1:1000], 0:9) |> gpu
+testdata = [(cat(4, float.(test_imgs[i])...), test_labels[:,i])
+         for i in partition(1:1000, 5)];
+testdata = gpu.(testdata);
 
 struct BasicBlock{B, C}
     m::B
@@ -27,7 +30,7 @@ end
 
 function BasicBlock(channels::Pair{<:Integer,<:Integer}; stride=1, dropout=0.7, σ=relu)
     in, out = channels
-    if in == out
+    if in == out && stride == 1
         res = identity
     else
         res = Conv((1, 1), in=>out; stride=(stride, stride))
@@ -36,7 +39,7 @@ function BasicBlock(channels::Pair{<:Integer,<:Integer}; stride=1, dropout=0.7, 
         BatchNorm(in; λ=σ),
         Conv((3, 3), in=>out; stride=(stride, stride), pad=(1, 1)),
         BatchNorm(out; λ=σ),
-        Dropout(dropout),
+        # Dropout(dropout),
         Conv((3, 3), out=>out; pad=(1, 1))
        )
     BasicBlock(m, res)
@@ -48,35 +51,54 @@ function (b::BasicBlock)(x)
     b.res(x) + b.m(x)
 end
 
-p = 1.0
-m = Chain(
-    BasicBlock(1=>8; stride=2, dropout=p),
-    BasicBlock(8=>8, dropout=p),
-    BasicBlock(8=>16; stride=2, dropout=p),
-    BasicBlock(16=>16; dropout=p),
-    BatchNorm(16; λ=relu),
-    x -> mean(x, [1, 2]),
-    x -> reshape(x, 16, :),
-    Dense(16, 10),
-    softmax
-   ) |> gpu
+function WideStack(channels::Pair{<:Integer,<:Integer}; layers=1, stride=1, dropout=0.7, σ=relu)
+    in, out = channels
+    stack = [BasicBlock(out=>out; dropout=dropout, σ=σ) for n in 1:(layers-1)]
+    stack = [BasicBlock(channels; stride=stride, dropout=dropout, σ=σ); stack]
+    Chain(stack...)
+end
 
-testmode!(m)
-m(train[1][1])
+function ResNet(channels::Pair{<:Integer,<:Integer};
+                strides=[1, 1, 1], widening_factor=10,
+                depth=16, base_channels=16, σ=relu, dropout=0.7)
+    in, out = channels
+    @assert (depth - 4) % 6 == 0
+    n = Int((depth - 4) / 6)
+    c = base_channels
+    k = widening_factor
+    Chain(
+        BatchNorm(in),
+        Conv((3, 3), in=>c; pad=(1, 1)),
+        WideStack(c=>k*c; layers=n, stride=strides[1], dropout=dropout, σ=σ),
+        WideStack(k*c=>2k*c; layers=n, stride=strides[2], dropout=dropout, σ=σ),
+        WideStack(2k*c=>4k*c; layers=n, stride=strides[3], dropout=dropout, σ=σ),
+        BatchNorm(4k*c; λ=relu),
+        x -> mean(x, [1, 2]),
+        x -> squeeze(x, (1, 2)),
+        Dense(4k*c, out))
+end
 
-testmode!(m, false)
+m = ResNet(1=>10; widening_factor=10, depth=16, base_channels=16, strides=[2, 2, 1]) |> gpu
 
-loss(x, y) = crossentropy(m(x), y)
-function accuracy(x, y; train=true) 
+
+@time m(train[1][1])
+@time m(train[1][1])
+
+
+loss(x, y) = logitcrossentropy(m(x), y)
+function accuracy(data; train=true) 
     if !train
         testmode!(m)
     end
-    mu = mean(argmax(m(x)) .== argmax(y))
+    mu = 0.0
+    for (x, y) in data
+        mu += mean(argmax(m(x)) .== argmax(y))
+    end
     testmode!(m, false)
-    return mu
+    mu / length(data)
 end
 
-evalcb = throttle(() -> @show(accuracy(tX, tY; train=false)), 120)
+evalcb = throttle(() -> @show(accuracy(testdata; train=false)), 60)
 opt = ADAM(params(m))
 
 @epochs 10 Flux.train!(loss, train, opt, cb = evalcb)
