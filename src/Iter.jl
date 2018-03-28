@@ -24,7 +24,13 @@ function load_buffer(filename, batchsize)
     [(x[:, :, :, i], y[i]) for i in partition(1:n, batchsize)]
 end
 
-Base.start(::DataLoader) = 1
+function Base.start(dl::DataLoader)
+    if dl.current_file_idx > 1
+        dl.current_file_idx = 1
+        dl.buffer = load_buffer(dl.files[dl.current_file_idx], dl.batchsize)
+    end
+    return 1
+end
 function Base.next(dl::DataLoader, state)
     data, state = next(dl.buffer, state)
     if done(dl.buffer, state) && dl.current_file_idx < length(dl.files)
@@ -33,7 +39,7 @@ function Base.next(dl::DataLoader, state)
         state = start(dl.buffer)
     end
     data = gpu.(dl.transform(data...))
-    [data], state
+    data, state
 end
 
 Base.done(dl::DataLoader, state) = done(dl.buffer, state)

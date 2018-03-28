@@ -8,7 +8,7 @@ using DIDSON
 epochs = 10
 width = 10
 depth = 16
-path = "/home/safnuk/imagenet/samples"
+path = "$(homedir())/imagenet/samples"
 batchsize = 50
 
 function get_data(path, batchsize)
