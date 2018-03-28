@@ -14,13 +14,17 @@ batchsize = 50
 function get_data(path, batchsize)
     train = DataLoader(["$path/train_$n.jld" for n in 1:10], batchsize)
     val = DataLoader(["$path/val.jld"], batchsize)
+    (train, val)
 end
 
-m = ResNet(1=>1000; widening_factor=width, depth=depth, base_channels=16, strides=[2, 2, 1]) |> gpu
+function run(loss, opt, traindata, testdata, epochs, start_epoch=1)
+    for n in start_epoch:start_epoch + epochs
+        Flux.train!(loss, traindata, opt)
+        @show accuracy(testdata)
+        @save "resnet-$(depth)-$(width)_$(n).bson" m
+    end
+end
 
-traindata, testdata = get_data(path, batchsize);
-
-loss(x, y) = logitcrossentropy(m(x), y)
 function accuracy(data) 
     testmode!(m)
     mu = 0.0
@@ -33,10 +37,9 @@ function accuracy(data)
     mu / n
 end
 
+m = ResNet(1=>1000; widening_factor=width, depth=depth, base_channels=16, strides=[2, 2, 1]) |> gpu
+traindata, testdata = get_data(path, batchsize);
+loss(x, y) = logitcrossentropy(m(x), y)
 opt = ADAM(params(m))
 
-for n in 1:epochs
-    Flux.train!(loss, traindata, opt)
-    @show accuracy(testdata)
-    @save "resnet-$(depth)-$(width)_$(n).bson" m
-end
+# run(loss, opt, traindata, testdata, epochs)
