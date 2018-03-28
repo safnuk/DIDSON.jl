@@ -1,4 +1,4 @@
-using ImageView, GtkReactive, Colors, Images
+using Colors, Images, Requires
 
 using BackgroundSegmenter
 using ObjectTracker
@@ -10,42 +10,44 @@ const AREA_THRESHOLD = 9
 const VOLUME_THRESHOLD = 40
 const samples = [Pkg.dir("DIDSON") * "/data/lamprey$n.avi" for n in 1:5]
 
-function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
-    println("Loading...")
-    V = load_video(infile)
-    println("Segmenting foreground...")
-    @time fgbg = filter(V, area, volume);
-    for n in 1:length(V)
-        if fgbg[n] == 0
-            V[n] = 0
-        end
-    end
-    println("Collecting blobs...")
-    objects = Vector{Object}()
-    num_objects = 0
-    @time blob_series = form_blobs(fgbg[:, :, 2:end])
-
-    println("Loading video player...")
-    gui = imshow(V)
-    println("Tracking objects...")
-    for (n, blobs) in enumerate(blob_series)
-        num_objects = match!(objects, blobs, num_objects; radius=20)
-        for obj in objects
-            # if is_transient(obj)
-            #     color = RGB(1, 0, 0)
-            # else
-            if !is_transient(obj)
-                color = RGB(0, 0, 1)
-                annotate!(gui, AnnotationPoint(obj.y.p, obj.x.p, z=n+1, shape='.', size=2, color=color))
-                annotate!(gui, AnnotationText(obj.y.p,
-                                            obj.x.p+4,
-                                            z=n+1, string(obj.label),
-                                            color=color, fontsize=4))
+@require ImageView begin
+    function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
+        println("Loading...")
+        V = load_video(infile)
+        println("Segmenting foreground...")
+        @time fgbg = filter(V, area, volume);
+        for n in 1:length(V)
+            if fgbg[n] == 0
+                V[n] = 0
             end
         end
+        println("Collecting blobs...")
+        objects = Vector{Object}()
+        num_objects = 0
+        @time blob_series = form_blobs(fgbg[:, :, 2:end])
+
+        println("Loading video player...")
+        gui = imshow(V)
+        println("Tracking objects...")
+        for (n, blobs) in enumerate(blob_series)
+            num_objects = match!(objects, blobs, num_objects; radius=20)
+            for obj in objects
+                # if is_transient(obj)
+                #     color = RGB(1, 0, 0)
+                # else
+                if !is_transient(obj)
+                    color = RGB(0, 0, 1)
+                    annotate!(gui, AnnotationPoint(obj.y.p, obj.x.p, z=n+1, shape='.', size=2, color=color))
+                    annotate!(gui, AnnotationText(obj.y.p,
+                                                obj.x.p+4,
+                                                z=n+1, string(obj.label),
+                                                color=color, fontsize=4))
+                end
+            end
+        end
+        println("Done")
+        return
     end
-    println("Done")
-    return
 end
 
 function load_video(infile)
