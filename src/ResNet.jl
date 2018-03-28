@@ -1,27 +1,4 @@
-using BSON: @save, @load
-using Flux, Flux.Data.MNIST
-using Flux: @epochs, onehotbatch, argmax, logitcrossentropy, testmode!, throttle
-using Base.Iterators: repeated, partition
-using CuArrays
-
-# Classify MNIST digits with a convolutional network
-
-imgs = MNIST.images();
-test_imgs = MNIST.images(:test);
-
-labels = onehotbatch(MNIST.labels(), 0:9);
-test_labels = onehotbatch(MNIST.labels(:test), 0:9);
-
-# Partition into batches of size 100
-train = [(cat(4, float.(imgs[i])...), labels[:,i])
-         for i in partition(1:60_000, 50)];
-
-train = gpu.(train);
-
-# Prepare test set (first 1,000 images)
-testdata = [(cat(4, float.(test_imgs[i])...), test_labels[:,i])
-         for i in partition(1:1000, 5)];
-testdata = gpu.(testdata);
+using Flux
 
 struct BasicBlock{B, C}
     m::B
@@ -78,29 +55,51 @@ function ResNet(channels::Pair{<:Integer,<:Integer};
         Dense(4k*c, out))
 end
 
-m = ResNet(1=>10; widening_factor=10, depth=16, base_channels=16, strides=[2, 2, 1]) |> gpu
 
+# Classify MNIST digits with a convolutional network
 
-@time m(train[1][1])
-@time m(train[1][1])
-
-
-loss(x, y) = logitcrossentropy(m(x), y)
-function accuracy(data; train=true) 
-    if !train
-        testmode!(m)
-    end
-    mu = 0.0
-    for (x, y) in data
-        mu += mean(argmax(m(x)) .== argmax(y))
-    end
-    testmode!(m, false)
-    mu / length(data)
-end
-
-evalcb = throttle(() -> @show(accuracy(testdata; train=false)), 60)
-opt = ADAM(params(m))
-
-@epochs 10 Flux.train!(loss, train, opt, cb = evalcb)
-@save "mymodel10.bson" m
-
+# using Flux #, Flux.Data.MNIST
+# using Base.Iterators: repeated, partition
+#
+# imgs = MNIST.images();
+# test_imgs = MNIST.images(:test);
+# 
+# labels = onehotbatch(MNIST.labels(), 0:9);
+# test_labels = onehotbatch(MNIST.labels(:test), 0:9);
+# 
+# # Partition into batches of size 100
+# train = [(cat(4, float.(imgs[i])...), labels[:,i])
+#          for i in partition(1:60_000, 50)];
+# 
+# train = gpu.(train);
+# 
+# # Prepare test set (first 1,000 images)
+# testdata = [(cat(4, float.(test_imgs[i])...), test_labels[:,i])
+#          for i in partition(1:1000, 5)];
+# testdata = gpu.(testdata);
+# 
+# m = ResNet(1=>10; widening_factor=10, depth=16, base_channels=16, strides=[2, 2, 1]) |> gpu
+# 
+# 
+# @time m(train[1][1])
+# @time m(train[1][1])
+# 
+# 
+# loss(x, y) = logitcrossentropy(m(x), y)
+# function accuracy(data; train=true) 
+#     if !train
+#         testmode!(m)
+#     end
+#     mu = 0.0
+#     for (x, y) in data
+#         mu += mean(argmax(m(x)) .== argmax(y))
+#     end
+#     testmode!(m, false)
+#     mu / length(data)
+# end
+# 
+# evalcb = throttle(() -> @show(accuracy(testdata; train=false)), 60)
+# opt = ADAM(params(m))
+# 
+# @epochs 10 Flux.train!(loss, train, opt, cb = evalcb)
+# @save "mymodel10.bson" m
