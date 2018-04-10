@@ -1,4 +1,6 @@
 using Colors, Images, Requires
+using DataStructures
+using ImageView
 
 using BackgroundSegmenter
 using ObjectTracker
@@ -10,44 +12,45 @@ const AREA_THRESHOLD = 9
 const VOLUME_THRESHOLD = 40
 const samples = [Pkg.dir("DIDSON") * "/data/lamprey$n.avi" for n in 1:5]
 
-@require ImageView begin
-    function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
-        println("Loading...")
-        V = load_video(infile)
-        println("Segmenting foreground...")
-        @time fgbg = filter(V, area, volume);
-        for n in 1:length(V)
-            if fgbg[n] == 0
-                V[n] = 0
-            end
+function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
+    V = load_video(infile)
+    height, width, time = size(V)
+    W = zeros(V)
+    fgbg = filter(V, area, volume);
+    for n in 1:length(V)
+        if fgbg[n] != 0
+            W[n] = V[n]
         end
-        println("Collecting blobs...")
-        objects = Vector{Object}()
-        num_objects = 0
-        @time blob_series = form_blobs(fgbg[:, :, 2:end])
-
-        println("Loading video player...")
-        gui = imshow(V)
-        println("Tracking objects...")
-        for (n, blobs) in enumerate(blob_series)
-            num_objects = match!(objects, blobs, num_objects; radius=20)
-            for obj in objects
-                # if is_transient(obj)
-                #     color = RGB(1, 0, 0)
-                # else
-                if !is_transient(obj)
-                    color = RGB(0, 0, 1)
-                    annotate!(gui, AnnotationPoint(obj.y.p, obj.x.p, z=n+1, shape='.', size=2, color=color))
-                    annotate!(gui, AnnotationText(obj.y.p,
-                                                obj.x.p+4,
-                                                z=n+1, string(obj.label),
-                                                color=color, fontsize=4))
-                end
-            end
-        end
-        println("Done")
-        return
     end
+    object_history = DefaultDict{Int, OrderedDict{Int, Object}}(OrderedDict{Int, Object}) 
+    objects = Vector{Object}()
+    num_objects = 0
+    blob_series = form_blobs(fgbg[:, :, 2:end])
+
+    println("Loading video player...")
+    gui = imshow(hcat(W, V))
+    println("Tracking objects...")
+    for (n, blobs) in enumerate(blob_series)
+        num_objects = match!(objects, blobs, num_objects; radius=20)
+        for obj in objects
+            object_history[obj.label][n+1] = obj
+        end
+        for obj in objects
+            if is_transient(obj)
+                color = RGB(1, 0, 0)
+            else
+            # if !is_transient(obj)
+                color = RGB(0, 0, 1)
+            end
+            annotate!(gui, AnnotationPoint(obj.y.p, obj.x.p, z=n+1, shape='.', size=2, color=color))
+            annotate!(gui, AnnotationPoint(obj.y.p + width, obj.x.p, z=n+1, shape='.', size=2, color=color))
+            annotate!(gui, AnnotationText(obj.y.p,
+                                        obj.x.p+4,
+                                        z=n+1, string(obj.label),
+                                        color=color, fontsize=4))
+        end
+    end
+    return Dict(:objects => object_history, :clip => V, :mask => fgbg)
 end
 
 function load_video(infile)
