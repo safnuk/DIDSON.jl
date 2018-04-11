@@ -9,7 +9,7 @@ epochs = 4
 width = 10
 depth = 16
 path = "$(homedir())/imagenet/samples"
-batchsize = 50
+batchsize = 20
 
 function get_data(path, batchsize)
     train = DataLoader(["$path/train_$n.jld" for n in 1:10], batchsize)
@@ -19,6 +19,7 @@ end
 
 function run(loss, opt, traindata, testdata, epochs, start_epoch=1)
     for n in start_epoch:start_epoch + epochs
+        println("Epoch $n ==============")
         Flux.train!(loss, traindata, opt)
         @show accuracy(testdata)
         @save "resnet-gn-$(depth)-$(width)_$(n).bson" m
