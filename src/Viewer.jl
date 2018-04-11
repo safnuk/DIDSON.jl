@@ -1,6 +1,6 @@
 using Colors, Images, Requires
 using DataStructures
-using ImageView
+# using ImageView
 
 using BackgroundSegmenter
 using ObjectTracker
