@@ -56,8 +56,12 @@ function label_next(dir="./", outdir="./")
     snippets = extract_snippets(clip_data, fish_ids)
     save_snippets(outdir, "fish", base, snippets)
     used_objects = [used_objects ; vcat(fish_ids...)]
-    println("Obj: $(clip_data[:objects])")
-    other_ids = [[x.label] for x in clip_data[:objects] if !(x.label in used_objects || is_transient(x))]
+    transient = Dict{Int, Bool}()
+    for (label, objects) in clip_data[:objects]
+        last_frame = [x for x in keys(objects)][end]
+        transient[label] = is_transient(objects[last_frame])
+    end
+    other_ids = [[x] for x in keys(clip_data[:objects]) if !(x in used_objects || transient(x))]
     snippets = extract_snippets(clip_data, other_ids)
     save_snippets(outdir, "other", base, snippets)
 end
@@ -86,6 +90,7 @@ function extract_snippet(clip_data, object_ids)
     intervals = [keys(x) for x in objects]
     first = min([collect(x)[1] for x in intervals]...)
     last = max([collect(x)[end] for x in intervals]...)
+    println("Object frames: [$first, $last]")
     prev_grabbed = first - 1
     prev_center = [0, 0]
     for frame in first:last
@@ -99,7 +104,7 @@ function extract_snippet(clip_data, object_ids)
         prev_center = center
     end
     centers = Array{Float64}(2, 0)
-    frames = Array{UInt8, 3}(24, 40, 2, 0)
+    frames = Array{UInt8}(24, 40, 2, 0)
     for snip in snippet
         center, frame = snip
         centers = cat(2, centers, center)
@@ -134,7 +139,14 @@ function extract_frame(clip_data, center, frame)
     bbox = calc_bounding_box(center, height, width)
     image = clip_data[:clip][bbox..., frame]
     fg_mask = clip_data[:mask][bbox..., frame]
-    cat(3, image, fg_mask)
+    mask = zeros(UInt8, size(fg_mask))
+    for (n, x) in enumerate(fg_mask)
+        if x != 0
+            mask[n] = one(UInt8)
+        end
+    end
+    x = cat(3, image, mask)
+    return x
 end
 
 function calc_bounding_box(center, height, width, target_height=24, target_width=40)
