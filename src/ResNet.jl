@@ -13,9 +13,9 @@ function BasicBlock(channels::Pair{<:Integer,<:Integer}; stride=1, dropout=0.7, 
         res = Conv((1, 1), in=>out; stride=(stride, stride))
     end
     m = Chain(
-        BatchNorm(in; λ=σ),
+        GroupNorm(in; λ=σ),
         Conv((3, 3), in=>out; stride=(stride, stride), pad=(1, 1)),
-        BatchNorm(out; λ=σ),
+        GroupNorm(out; λ=σ),
         # Dropout(dropout),
         Conv((3, 3), out=>out; pad=(1, 1))
        )
@@ -44,12 +44,12 @@ function ResNet(channels::Pair{<:Integer,<:Integer};
     c = base_channels
     k = widening_factor
     Chain(
-        BatchNorm(in),
+        GroupNorm(in),
         Conv((3, 3), in=>c; pad=(1, 1)),
         WideStack(c=>k*c; layers=n, stride=strides[1], dropout=dropout, σ=σ),
         WideStack(k*c=>2k*c; layers=n, stride=strides[2], dropout=dropout, σ=σ),
         WideStack(2k*c=>4k*c; layers=n, stride=strides[3], dropout=dropout, σ=σ),
-        BatchNorm(4k*c; λ=relu),
+        GroupNorm(4k*c; λ=relu),
         x -> mean(x, [1, 2]),
         x -> squeeze(x, (1, 2)),
         Dense(4k*c, out))
@@ -57,10 +57,10 @@ end
 
 
 # Classify MNIST digits with a convolutional network
-
+# 
 # using Flux #, Flux.Data.MNIST
 # using Base.Iterators: repeated, partition
-#
+# 
 # imgs = MNIST.images();
 # test_imgs = MNIST.images(:test);
 # 
@@ -78,7 +78,7 @@ end
 #          for i in partition(1:1000, 5)];
 # testdata = gpu.(testdata);
 # 
-# m = ResNet(1=>10; widening_factor=10, depth=16, base_channels=16, strides=[2, 2, 1]) |> gpu
+# m = ResNet(1=>10; widening_factor=2, depth=16, base_channels=16, strides=[2, 2, 1]) |> gpu
 # 
 # 
 # @time m(train[1][1])
@@ -86,20 +86,16 @@ end
 # 
 # 
 # loss(x, y) = logitcrossentropy(m(x), y)
-# function accuracy(data; train=true) 
-#     if !train
-#         testmode!(m)
-#     end
+# function accuracy(data) 
 #     mu = 0.0
 #     for (x, y) in data
 #         mu += mean(argmax(m(x)) .== argmax(y))
 #     end
-#     testmode!(m, false)
 #     mu / length(data)
 # end
 # 
-# evalcb = throttle(() -> @show(accuracy(testdata; train=false)), 60)
+# evalcb = throttle(() -> @show(accuracy(testdata)), 60)
 # opt = ADAM(params(m))
 # 
-# @epochs 10 Flux.train!(loss, train, opt, cb = evalcb)
+# @epochs 9 Flux.train!(loss, train, opt, cb = evalcb)
 # @save "mymodel10.bson" m
