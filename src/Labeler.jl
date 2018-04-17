@@ -1,4 +1,5 @@
 using BSON
+using ImageView
 using JLD
 
 function parseObjectIDs(str)
@@ -61,7 +62,7 @@ function label_next(dir="./", outdir="./")
         last_frame = [x for x in keys(objects)][end]
         transient[label] = is_transient(objects[last_frame])
     end
-    other_ids = [[x] for x in keys(clip_data[:objects]) if !(x in used_objects || transient(x))]
+    other_ids = [[x] for x in keys(clip_data[:objects]) if !(x in used_objects || transient[x])]
     snippets = extract_snippets(clip_data, other_ids)
     save_snippets(outdir, "other", base, snippets)
 end
@@ -122,6 +123,7 @@ function calc_center(objects)
         running_x += object.area * object.x.p
         running_y += object.area * object.y.p
     end
+    total_area = max(1, total_area)
     [running_x / total_area, running_y / total_area]
 end
 

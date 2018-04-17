@@ -16,7 +16,7 @@ function view_clip(infile, area=AREA_THRESHOLD, volume=VOLUME_THRESHOLD)
     V = load_video(infile)
     height, width, time = size(V)
     W = zeros(V)
-    fgbg = filter(V, area, volume);
+    fgbg = filter(V);
     for n in 1:length(V)
         if fgbg[n] != 0
             W[n] = V[n]
@@ -62,21 +62,18 @@ function load_video(infile)
     end
 end
 
-function filter(V, min_area, min_volume)
+function filter(V; radius=5, min_neighbors=20, min_cluster_size=30)
     fgbg = zeros(V);
     (n, m, t) = size(V)
     M = MixtureModel(n, m);
     for i in 1:t
         apply!(M, (view(V, :, :, i)), (view(fgbg, :, :, i)));
     end
-    if min_area > 0
-        for i in 1:t
-            c = view(fgbg, :, :, i);
-            # filter_components!(temp1, c, min_area);
-            fgbg[:, :, i] = filter_components(c, min_area);
-            fgbg[:, :, i] = morphological_close(c)
-        end
+    fgbg[:, :, 1] = zeros(fgbg[:, :, 1])
+    fgbg = cluster(fgbg, radius; min_neighbors=min_neighbors, min_cluster_size=min_cluster_size)
+    for i in 1:t
+        c = view(fgbg, :, :, i);
+        fgbg[:, :, i] = morphological_close(c)
     end
-    fgbg = filter_components(fgbg, min_volume);
     return fgbg
 end
