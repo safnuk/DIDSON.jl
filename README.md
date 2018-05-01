@@ -19,7 +19,7 @@ The package uses python numpy for loading arrays and scikit-video for loading av
 
 To view the foreground segmentation and object tracking in action, use:
 ```
-julia> using DIDSON
+julia> using DIDSON.Viewer
 julia> view_clip(samples[1])
 ```
 There are 7 different sample clips in the repo (i.e. use `samples[n]` for `1 <= n <= 7`), or you can use your own avi file or numpy array file directly.
