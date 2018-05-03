@@ -1,33 +1,24 @@
 using JLD
 
 const MAX_FRAMES = 20
-const MAX_OVERLAP = 15 
+const STRIDE = 10
 indir = "./"
-outdir = "../labeled_trunc"
+outdir = "../labeled"
 
 
-function splitdata(data, maxframes=MAX_FRAMES, maxoverlap=MAX_OVERLAP)
+function splitdata(data, maxframes=MAX_FRAMES, stride=STRIDE)
     splits = []
     c = data["centers"]
     f = data["frames"]
-    n = length(c)
-    num_splits = div(n, maxframes)
-    if n % maxframes < (maxframes - maxoverlap)
-        num_splits -= 1
+    n = size(c, 2)
+    pos = 1
+    while pos + maxframes <= n
+        range = pos:(pos + maxframes - 1)
+        push!(splits, Dict("centers" => c[:, range], "frames" => f[:, :, :, range]))
+        pos += stride
     end
-    if n <= maxframes 
-        push!(splits, Dict("centers" => c, "frames" => f))
-    else
-        push!(splits, Dict("centers" => c[1:maxframes], "frames" => f[1:maxframes]))
-    end
-    for m in 1:num_splits-1
-        range = (m * maxframes + 1) : ((m+1) * maxframes)
-        push!(splits, Dict("centers" => c[range], "frames" => f[range]))
-    end
-    if num_splits >= 1
-        range = (n - maxframes + 1) : n
-        push!(splits, Dict("centers" => c[range], "frames" => f[range]))
-    end
+    range = max(1, n-maxframes+1):n
+    push!(splits, Dict("centers" => c[:, range], "frames" => f[:, :, :, range]))
     return splits
 end
 

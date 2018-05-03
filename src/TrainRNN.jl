@@ -1,13 +1,14 @@
 import BSON
 import JLD
 using Flux
-using Flux: back!, crossentropy
+using Flux: back!, crossentropy, reset!
 
 feature_model_file = "resnet-gn-16-10-best.bson"
 trainpath = "labeled"
 testpath = "labeled_test"
 out_features = 12*20*640
 N = 10
+train_features  = true
 
 function load_data(basedir)
     data = []
@@ -44,7 +45,8 @@ feature_model = Chain(
 feature_layer = feature_model[1:end-3] |> gpu
 
 
-downsample = Dense(out_features+2, N, σ) |> gpu
+downsample = Dense(out_features, N) |> gpu
+center_embed = Dense(2, N) |> gpu
 scanner = LSTM(N, N) |> gpu
 predictor = Dense(N, 3) |> gpu
 
@@ -54,7 +56,7 @@ function model(x)
 
     features = feature_layer(frames)
     features = reshape(features, out_features, :)
-    inputs = downsample(vcat(features, centers))
+    inputs = σ.(downsample(features) .+ center_embed(centers))
     n, T = size(inputs)
     state = scanner(inputs[:, 1])
     for j in 2:T
@@ -80,7 +82,12 @@ end
 traindata = load_data(trainpath)
 testdata = load_data(testpath)
 loss(x, y) = crossentropy(model(x), y)
-opt = ADAM(params(downsample, scanner, predictor))
+if train_features
+    trainable_params = params(feature_layer, downsample, center_embed, scanner, predictor)
+else
+    trainable_params = params(downsample, center_embed, scanner, predictor)
+end
+opt = ADAM(trainable_params)
 
 macro interrupts(ex)
   :(try $(esc(ex))
