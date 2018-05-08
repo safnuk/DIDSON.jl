@@ -27,13 +27,12 @@ class Embedding(nn.Module):
         self.conv3 = nn.Conv2d(16, 64, 1, 1, 0)
 
     def forward(self, x, mask):
-        x = torch.cat((x, mask), 2)
-        B, T, C, L, W = x.shape
-        x = x.view(-1, C, L, W)
+        x = torch.cat((x, mask), 0)
+        x = x.unsqueeze(0)
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = self.conv3(x)
-        return x.view(B, T, -1)
+        return x.squeeze(0)
 
 
 class RNN(nn.Module):
@@ -56,27 +55,44 @@ class RNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 
-embedding = Embedding()
+class Predictor(nn.Module):
+    def __init__(self, hidden_size=10):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.rnn = RNN(hidden_size)
+        self.predictor = nn.Linear(hidden_size, 3)
+
+    def forward(self, x):
+        frame, mask, center = x
+        frame = frame.squeeze(0)
+        mask = mask.squeeze(0)
+        center = center.squeeze(0)
+
+        input_length = frame.size(0)
+        encoder_hidden = self.rnn.initHidden()
+
+        encoder_output = torch.zeros(self.hidden_size, device=device)
+
+        for ei in range(input_length):
+            encoder_output, encoder_hidden = self.rnn(
+                (frame[ei], mask[ei], center[ei]), encoder_hidden)
+        return self.predictor(encoder_output).squeeze(0)
+
+
+predictor = Predictor(15*64)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(embedding.parameters(), lr=0.0001)
+optimizer = optim.Adam(predictor.parameters(), lr=0.0001)
 
 for epoch in range(2):  # loop over the dataset multiple times
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
-        inputs, labels = data
-        frames, masks, centers = inputs
-        assert labels.shape == (1,), "Shape is {}".format(labels.shape)
-
-        # zero the parameter gradients
         optimizer.zero_grad()
-
-        # forward + backward + optimize
-        outputs = embedding(frames, masks)
-        loss = criterion(outputs, labels)
+        inputs, labels = data
+        prediction = predictor(inputs)
+        loss = criterion(prediction, labels)
         loss.backward()
         optimizer.step()
 
-        # print statistics
         running_loss += loss.item()
         if i % 500 == 499:    # print every 100 mini-batches
             print('[%d, %5d] loss: %.3f' %
@@ -93,8 +109,7 @@ counts = {
 with torch.no_grad():
     for data in testloader:
         inputs, labels = data
-        frames, masks, centers = inputs
-        outputs = embedding(frames, masks)
+        outputs = predictor(inputs)
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
