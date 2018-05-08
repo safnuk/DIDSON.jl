@@ -110,6 +110,7 @@ counts = {
 with torch.no_grad():
     for data in testloader:
         inputs, labels = data
+        labels = labels.to(device=device)
         outputs = predictor(inputs)
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
