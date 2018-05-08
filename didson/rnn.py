@@ -64,9 +64,9 @@ class Predictor(nn.Module):
 
     def forward(self, x):
         frame, mask, center = x
-        frame = frame.squeeze(0)
-        mask = mask.squeeze(0)
-        center = center.squeeze(0)
+        frame = frame.to(device=device).squeeze(0)
+        mask = mask.to(device=device).squeeze(0)
+        center = center.to(device=device).squeeze(0)
 
         input_length = frame.size(0)
         encoder_hidden = self.rnn.initHidden()
@@ -79,7 +79,7 @@ class Predictor(nn.Module):
         return self.predictor(encoder_output).squeeze(0)
 
 
-predictor = Predictor(15*64)
+predictor = Predictor(15*64).to(device=device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(predictor.parameters(), lr=0.0001)
 
@@ -88,6 +88,7 @@ for epoch in range(2):  # loop over the dataset multiple times
     for i, data in enumerate(trainloader, 0):
         optimizer.zero_grad()
         inputs, labels = data
+        labels = labels.to(device=device)
         prediction = predictor(inputs)
         loss = criterion(prediction, labels)
         loss.backward()
