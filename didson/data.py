@@ -94,11 +94,15 @@ class ImagenetDataset(Dataset):
 
         # Labels are indexed from 1, shift it so that indexes start at 0
         y = [i-1 for i in y]
+        y = y * 3
 
         img_size2 = img_size * img_size
 
         x = np.concatenate(
-            (x[:, :img_size2], x[:, img_size2:2*img_size2], x[:, 2*img_size2:]))
-        x = x.reshape((x.shape[0], img_size, img_size, 3)).transpose(0, 3, 1, 2)
+            (x[:, :img_size2],
+             x[:, img_size2:2*img_size2],
+             x[:, 2*img_size2:]))
+        x = x.reshape(
+            (x.shape[0], img_size, img_size, 1)).transpose(0, 3, 1, 2)
 
         return x, y
