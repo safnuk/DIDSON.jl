@@ -1,3 +1,6 @@
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
+*.pyc
+__pycache__/
+.ropeproject

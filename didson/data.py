@@ -97,7 +97,7 @@ class ImagenetDataset(Dataset):
 
         img_size2 = img_size * img_size
 
-        x = np.dstack(
+        x = np.concatenate(
             (x[:, :img_size2], x[:, img_size2:2*img_size2], x[:, 2*img_size2:]))
         x = x.reshape((x.shape[0], img_size, img_size, 3)).transpose(0, 3, 1, 2)
 
