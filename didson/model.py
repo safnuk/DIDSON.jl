@@ -22,6 +22,7 @@ class DidsonModel(Model):
         super().__init__(*args, **kwargs)
         self.sample_size = 4
         self.metrics["accuracy"] = Accuracy()
+        self.loss_fn = torch.nn.CrossEntropyLoss()
 
     def load_data(self, basepath):
         basepath = Path(basepath)
