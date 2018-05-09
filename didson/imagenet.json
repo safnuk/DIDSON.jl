@@ -1,17 +1,21 @@
 {
     "basepath": "log",
     "model": "DIDSON",
-    "gpus": [0],
-    "data": {"basepath": "~/imagenet/"},
+    "gpus": [0, 1],
+    "data": {"basepath": "/home/safnu1b/imagenet/"},
     "name": "wrn_28_10",
     "network_config": {
         "out_channels": 1000,
         "blocks": 4,
-        "dropout": 0.3,
+        "dropout": 0.3
     },
+    "distributed": {
+        "world_size": 1,
+        "sharedfile": "sharedfile"
+    }
     "train_params": {
-        "batch_size": 10,
-        "epochs": 5,
+        "batch_size": 512,
+        "epochs": 8,
         "learning_rate": 0.0001,
         "lr_schedule": []
     }
