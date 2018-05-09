@@ -4,14 +4,8 @@ import torch
 
 from modelmanager import Model
 
-from didson.resnet import WideResNet, Classifier
-import cae.cfd.dataloader as cfd_dl
-
-
-networks = {
-    'WideResNet': WideResNet,
-    'Classifier': Classifier,
-}
+from didson.data import ImagenetDataset
+from didson.resnet import Classifier
 
 
 class Accuracy(torch.nn.Module):
@@ -23,7 +17,7 @@ class Accuracy(torch.nn.Module):
         return (max_index == targets).sum()
 
 
-class Model(Model):
+class DidsonModel(Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.sample_size = 4
@@ -32,18 +26,17 @@ class Model(Model):
     def load_data(self, basepath):
         basepath = Path(basepath)
         train = basepath / "train"
-        validation = basepath / "eval"
-        self.train_data = cfd_dl.DirectoryDataset(train)
+        validation = basepath / "val"
+        self.train_data = ImagenetDataset(train)
         if validation.exists():
-            self.validation_data = cfd_dl.DirectoryDataset(validation)
+            self.validation_data = ImagenetDataset(validation)
         else:
             self.validation_data = None
 
-    def init_network(self, id, **network):
+    def init_network(self, **network):
         input, _ = self.train_data[0]
         network['in_channels'] = input.shape[0]
-        module = networks[id]
-        self.net = module(**network)
+        self.net = Classifier(**network)
 
     def get_visuals(self):
         return {}
