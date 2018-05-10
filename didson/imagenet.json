@@ -2,15 +2,14 @@
     "basepath": "log",
     "model": "DIDSON",
     "gpus": [0],
-    "data": {"basepath": "~/imagenet/"},
+    "data": {"basepath": "/home/safnuk/imagenet/"},
     "name": "wrn_28_10",
     "network_config": {
         "out_channels": 1000,
-        "blocks": 4,
-        "dropout": 0.3,
+        "blocks": 4
     },
     "train_params": {
-        "batch_size": 10,
+        "batch_size": 512,
         "epochs": 5,
         "learning_rate": 0.0001,
         "lr_schedule": []

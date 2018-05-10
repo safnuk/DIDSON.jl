@@ -14,7 +14,7 @@ class Accuracy(torch.nn.Module):
 
     def forward(self, x, targets):
         max_index = x.max(dim=1)[1]
-        return (max_index == targets).sum()
+        return (max_index == targets).float().mean()
 
 
 class DidsonModel(Model):
@@ -23,6 +23,7 @@ class DidsonModel(Model):
         self.sample_size = 4
         self.metrics["accuracy"] = Accuracy()
         self.loss_fn = torch.nn.CrossEntropyLoss()
+        self.loggers = {}
 
     def load_data(self, basepath):
         basepath = Path(basepath)
