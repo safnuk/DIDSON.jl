@@ -4,7 +4,10 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from torch.utils.data import DataLoader
+
+from modelmanager import run
 from didson.data import SequenceDataset
+from didson.model import models
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -36,16 +39,24 @@ class Embedding(nn.Module):
 
 
 class RNN(nn.Module):
-    def __init__(self, hidden_size=15*64):
+    def __init__(self, config="imagenet_trained.json", hidden_size=15*64):
         super().__init__()
         self.hidden_size = hidden_size
-        self.embedding = Embedding()
+        self.embedding = run(models, config).net.resnet
+        self.frame_conv = nn.Conv2d(64, 64, kernel_size=1)
+        self.mask_conv = nn.Conv2d(64, 64, kernel_size=1)
         self.center_embed = nn.Linear(2, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size)
 
     def forward(self, input, hidden):
         frame, mask, center = input
-        embedded = self.embedding(frame, mask).view(1, 1, -1)
+        self.embedding.eval()
+        embedded = self.embedding(torch.cat((frame, mask), 0))
+        embedded = self.conv1(embedded)
+        frame, mask = embedded.chunk(2)
+        frame = self.frame_conv(frame)
+        mask = self.mask_conv(mask)
+        embedded = F.tanh(frame) * F.sigmoid(mask).view(1, 1, -1)
         center = self.center_embed(center.view(1, -1)).view(1, 1, -1)
         output = embedded + center
         output, hidden = self.gru(output, hidden)
