@@ -8,6 +8,10 @@
         "out_channels": 1000,
         "blocks": 4
     },
+    "distributed": {
+        "world_size": 1,
+        "sharedfile": "sharedfile"
+    }
     "train_params": {
         "batch_size": 512,
         "epochs": 5,
