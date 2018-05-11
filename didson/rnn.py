@@ -43,10 +43,20 @@ class RNN(nn.Module):
         super().__init__()
         self.hidden_size = hidden_size
         self.embedding = run(models, config).net.resnet
+        for p in self.embedding.parameters():
+            p.requires_grad = False
         self.frame_conv = nn.Conv2d(64, 64, kernel_size=1)
         self.mask_conv = nn.Conv2d(64, 64, kernel_size=1)
         self.center_embed = nn.Linear(2, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size)
+
+    def trainable_parameters(self):
+        return (
+            list(self.frame_conv.parameters()) +
+            list(self.mask_conv.parameters()) +
+            list(self.center_embed.parameters()) +
+            list(self.gru.parameters())
+        )
 
     def forward(self, input, hidden):
         frame, mask, center = input
@@ -73,6 +83,11 @@ class Predictor(nn.Module):
         self.rnn = RNN(hidden_size)
         self.predictor = nn.Linear(hidden_size, 3)
 
+    def trainable_parameters(self):
+        return (
+            self.rnn.trainable_parameters() +
+            list(self.predictor.parameters()))
+
     def forward(self, x):
         frame, mask, center = x
         frame = frame.to(device=device).squeeze(0)
@@ -92,7 +107,7 @@ class Predictor(nn.Module):
 
 predictor = Predictor(15*64).to(device=device)
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(predictor.parameters(), lr=0.0001)
+optimizer = optim.Adam(predictor.trainable_parameters(), lr=0.0001)
 
 for epoch in range(2):  # loop over the dataset multiple times
     running_loss = 0.0
