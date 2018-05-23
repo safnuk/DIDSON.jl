@@ -2,16 +2,13 @@
     "basepath": "log",
     "model": "DIDSON",
     "gpus": [0],
-    "data": {"basepath": "/home/safnuk/imagenet/"},
+    "data": {"basepath": null},
     "name": "wrn_28_10",
     "network_config": {
         "out_channels": 1000,
         "blocks": 4
     },
-    "distributed": {
-        "world_size": 1,
-        "sharedfile": "sharedfile"
-    }
+    "resume": true,
     "train_params": {
         "batch_size": 512,
         "epochs": 5,

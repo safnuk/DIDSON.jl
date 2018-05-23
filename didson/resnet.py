@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as weight_init
 
-from didson.groupnorm import GroupNorm
+# from didson.groupnorm import GroupNorm
 
 
 def concat_elu(x, inplace=False):
@@ -22,6 +22,7 @@ class BasicBlock(nn.Module):
         dropout=0.0,
     ):
         super().__init__()
+        Norm = nn.BatchNorm2d
         self.nonlinearity = nonlinearity
         if dropout > 0.0:
             self.dropout = nn.Dropout2d(p=dropout, inplace=True)
@@ -42,8 +43,8 @@ class BasicBlock(nn.Module):
             out_channels, out_channels, kernel_size=3,
             stride=1, padding=1, bias=False
         )
-        self.norm1 = GroupNorm(in_channels)
-        self.norm2 = GroupNorm(out_channels)
+        self.norm1 = Norm(in_channels)
+        self.norm2 = Norm(out_channels)
 
         for m in self.modules():
             if isinstance(m, (nn.Conv2d, nn.Linear)):
@@ -83,7 +84,7 @@ class WideResNet(nn.Module):
         channels = [k * c * 2**n for n in range(len(strides))]
         self.out_channels = channels[-1]
         channels.append(c)
-        entry_norm = GroupNorm(in_channels)
+        entry_norm = nn.BatchNorm2d(in_channels)
         entry = nn.Conv2d(
             in_channels, c, kernel_size=3,
             stride=1, padding=1, bias=False
@@ -103,7 +104,7 @@ class Classifier(nn.Module):
     def __init__(self, in_channels, out_channels, **kwargs):
         super().__init__()
         self.resnet = WideResNet(in_channels, **kwargs)
-        self.gn = GroupNorm(self.resnet.out_channels)
+        self.gn = nn.BatchNorm2d(self.resnet.out_channels)
         self.class_weights = nn.Linear(self.resnet.out_channels, out_channels)
 
     def forward(self, x):
