@@ -1,9 +1,9 @@
 using JLD
 
-const MAX_FRAMES = 20
-const STRIDE = 10
+const MAX_FRAMES = 128
+const STRIDE = 64
 indir = "./"
-outdir = "../labeled"
+outdir = "../labeled_test$MAX_FRAMES"
 
 
 function splitdata(data, maxframes=MAX_FRAMES, stride=STRIDE)

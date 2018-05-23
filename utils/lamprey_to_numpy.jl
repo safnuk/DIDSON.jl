@@ -3,12 +3,12 @@ using JLD
 
 @pyimport numpy as np
 
-function convert_to_numpy(path)
+function convert_to_numpy(path, maxlength=20)
     for (root, dirs, files) in walkdir(path)
-        frame_stack = Array{UInt8}(24, 40, 1, 20, 0)
-        mask_stack = Array{UInt8}(24, 40, 1, 20, 0)
+        frame_stack = Array{UInt8}(24, 40, 1, maxlength, 0)
+        mask_stack = Array{UInt8}(24, 40, 1, maxlength, 0)
         length_stack = Array{Int}(0)
-        center_stack = Array{Float64}(2, 20, 0)
+        center_stack = Array{Float64}(2, maxlength, 0)
         for file in files
             inpath = joinpath(root, file)
             data = load(inpath)
@@ -19,11 +19,11 @@ function convert_to_numpy(path)
             n = size(frames, 4)
             T = eltype(frames)
             S = eltype(centers)
-            c_pad = zeros(S, 2, 20 - n)
-            f_pad = zeros(T, 24, 40, 1, 20 - n)
-            centers = reshape(cat(2, centers, c_pad), 2, 20, 1)
-            frames = reshape(cat(4, frames, f_pad), 24, 40, 1, 20, 1)
-            masks = reshape(cat(4, masks, f_pad), 24, 40, 1, 20, 1)
+            c_pad = zeros(S, 2, maxlength - n)
+            f_pad = zeros(T, 24, 40, 1, maxlength - n)
+            centers = reshape(cat(2, centers, c_pad), 2, maxlength, 1)
+            frames = reshape(cat(4, frames, f_pad), 24, 40, 1, maxlength, 1)
+            masks = reshape(cat(4, masks, f_pad), 24, 40, 1, maxlength, 1)
             center_stack = cat(3, center_stack, centers)
             frame_stack = cat(5, frame_stack, frames)
             mask_stack = cat(5, mask_stack, masks)
@@ -41,4 +41,4 @@ function convert_to_numpy(path)
     end
 end
 
-convert_to_numpy("./")
+convert_to_numpy("./", 128)
